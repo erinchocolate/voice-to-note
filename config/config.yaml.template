@@ -1,0 +1,62 @@
+# Voice-to-Note Configuration Template
+# Copy this file to ~/.config/voice-to-note/config.yaml and customize
+
+obsidian:
+  # Path to your Obsidian vault
+  vault_path: "/path/to/your/vault"
+  
+  # Folder within vault for voice notes
+  output_folder: "Voice Notes"
+  
+  # Filename pattern: {date}, {time}, {original_name} available
+  filename_pattern: "{date}-{time}-voice-note"
+
+llm:
+  transcription:
+    # Transcription provider: openai_whisper
+    provider: "openai_whisper"
+    
+    # API key environment variable name
+    api_key_env: "OPENAI_API_KEY"
+    
+    # Whisper model to use
+    model: "whisper-1"
+    
+    # Language (optional, auto-detect if not set)
+    language: null
+  
+  text_processing:
+    # Text processing provider: openai_gpt, openai_gpt4
+    provider: "openai_gpt4"
+    
+    # API key environment variable name
+    api_key_env: "OPENAI_API_KEY"
+    
+    # Model to use for text cleanup
+    model: "gpt-4-turbo-preview"
+
+processing:
+  # Common filler words to remove
+  filler_words:
+    - "um"
+    - "uh"
+    - "like"
+    - "you know"
+    - "sort of"
+    - "kind of"
+  
+  # How aggressive to be with filler word removal: low, moderate, high
+  remove_aggressiveness: "moderate"
+  
+  # Add headings based on topic detection (experimental)
+  add_headings: false
+  
+  # Minimum sentences per paragraph
+  paragraph_min_sentences: 2
+
+logging:
+  # Logging level: DEBUG, INFO, WARNING, ERROR
+  level: "INFO"
+  
+  # Log file location
+  file: "~/.config/voice-to-note/logs/app.log"

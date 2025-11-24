@@ -61,13 +61,14 @@ class Pipeline:
         # Text processor
         processing_api_key = config.get_api_key("text_processing")
         processing_model = config.get("llm.text_processing.model", "gpt-4-turbo-preview")
-        filler_words = config.get("processing.filler_words", [])
+        filler_words = config.get_filler_words()
         aggressiveness = config.get("processing.remove_aggressiveness", "moderate")
         
         self.text_processor = TextProcessor(
             api_key=processing_api_key,
             model=processing_model,
-            filler_words=filler_words,
+            filler_words_english=filler_words["english"],
+            filler_words_chinese=filler_words["chinese"],
             aggressiveness=aggressiveness
         )
         
@@ -188,6 +189,159 @@ class Pipeline:
         logger.info(f"Processing complete: {successful} successful, {failed} failed")
         
         return results
+    
+    def process_files_combined(self, audio_files: List[AudioFile]) -> ProcessingResult:
+        """
+        Process multiple audio files into a single combined note.
+        
+        Args:
+            audio_files: List of AudioFile objects to process
+            
+        Returns:
+            ProcessingResult for the combined output
+        """
+        start_time = datetime.now()
+        total = len(audio_files)
+        
+        logger.info(f"Processing {total} audio file(s) in combined mode")
+        
+        transcripts = []
+        failed_files = []
+        total_duration_seconds = 0
+        
+        # Process each file individually
+        for i, audio_file in enumerate(audio_files, 1):
+            logger.info(f"[{i}/{total}] Processing {audio_file.path.name}")
+            
+            try:
+                # Validate file size
+                self.transcription_service.validate_file_size(audio_file.path)
+                
+                # Transcribe audio
+                logger.info(f"  Transcribing {audio_file.path.name}")
+                raw_transcript = self.transcription_service.transcribe(audio_file.path)
+                
+                # Process text
+                logger.info(f"  Cleaning text for {audio_file.path.name}")
+                cleaned_text = self.text_processor.process(raw_transcript)
+                
+                # Build metadata for this recording
+                metadata = self._build_metadata(audio_file)
+                
+                # Store transcript and metadata
+                transcripts.append({
+                    'text': cleaned_text,
+                    'metadata': metadata
+                })
+                
+                # Accumulate duration
+                duration_seconds = audio_file.metadata.get('duration_seconds', 0)
+                total_duration_seconds += duration_seconds
+                
+            except (TranscriptionError, TextProcessingError) as e:
+                logger.error(f"Failed to process {audio_file.path.name}: {e}")
+                failed_files.append({
+                    'file': audio_file.path.name,
+                    'error': str(e)
+                })
+        
+        # Check if we have any successful transcriptions
+        if not transcripts:
+            error_msg = f"All {total} file(s) failed to process"
+            logger.error(error_msg)
+            processing_time = (datetime.now() - start_time).total_seconds()
+            
+            return ProcessingResult(
+                audio_file=audio_files[0],  # Use first file as reference
+                success=False,
+                error=error_msg,
+                processing_time=processing_time
+            )
+        
+        # Build combined metadata
+        combined_metadata = {
+            'created': transcripts[0]['metadata']['created'],  # Use first recording's timestamp
+            'sources': [t['metadata']['source'] for t in transcripts],
+            'processed': datetime.now(),
+            'total_duration': self._format_duration(total_duration_seconds),
+            'recordings': len(transcripts)
+        }
+        
+        # Add failed files to metadata if any
+        if failed_files:
+            combined_metadata['failed_files'] = [f['file'] for f in failed_files]
+        
+        # Format as combined markdown
+        logger.info("Formatting combined markdown")
+        markdown_content = self.markdown_formatter.format_combined(
+            transcripts,
+            combined_metadata
+        )
+        
+        # Generate filename
+        filename_pattern = self.config.get(
+            "obsidian.combined_filename_pattern",
+            "{date}-combined-notes"
+        )
+        filename = MarkdownFormatter.generate_filename(filename_pattern, combined_metadata)
+        
+        # Write to vault
+        logger.info("Writing combined file")
+        try:
+            output_path = self.file_writer.write(markdown_content, filename)
+        except FileWriteError as e:
+            logger.error(f"Failed to write combined file: {e}")
+            processing_time = (datetime.now() - start_time).total_seconds()
+            
+            return ProcessingResult(
+                audio_file=audio_files[0],
+                success=False,
+                error=f"Failed to write file: {e}",
+                processing_time=processing_time
+            )
+        
+        # Calculate processing time
+        processing_time = (datetime.now() - start_time).total_seconds()
+        
+        # Calculate total text length
+        total_length = sum(len(t['text']) for t in transcripts)
+        
+        success_msg = f"Successfully combined {len(transcripts)} recording(s)"
+        if failed_files:
+            success_msg += f" ({len(failed_files)} failed)"
+        
+        logger.info(f"{success_msg} in {processing_time:.1f}s")
+        
+        return ProcessingResult(
+            audio_file=audio_files[0],  # Use first file as reference
+            success=True,
+            output_path=output_path,
+            transcript_length=total_length,
+            processing_time=processing_time
+        )
+    
+    def _format_duration(self, seconds: float) -> str:
+        """
+        Format duration in seconds to human-readable string.
+        
+        Args:
+            seconds: Duration in seconds
+            
+        Returns:
+            Formatted duration string (e.g., "5m 23s")
+        """
+        if seconds < 60:
+            return f"{int(seconds)}s"
+        
+        minutes = int(seconds // 60)
+        remaining_seconds = int(seconds % 60)
+        
+        if minutes < 60:
+            return f"{minutes}m {remaining_seconds}s"
+        
+        hours = minutes // 60
+        remaining_minutes = minutes % 60
+        return f"{hours}h {remaining_minutes}m {remaining_seconds}s"
     
     def _build_metadata(self, audio_file: AudioFile) -> Dict[str, Any]:
         """

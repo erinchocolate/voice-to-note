@@ -50,6 +50,44 @@ class MarkdownFormatter:
         logger.info("Markdown formatting completed")
         return markdown
     
+    def format_combined(
+        self,
+        transcripts: list,
+        combined_metadata: Dict[str, Any]
+    ) -> str:
+        """
+        Format multiple transcripts into a single combined markdown document.
+        
+        Args:
+            transcripts: List of dicts with 'text' and 'metadata' keys
+            combined_metadata: Aggregated metadata for all recordings
+            
+        Returns:
+            Combined markdown document with sections for each recording
+        """
+        logger.debug("Formatting combined transcripts as markdown")
+        
+        # Generate combined frontmatter
+        frontmatter = self._generate_combined_frontmatter(combined_metadata)
+        
+        # Build body with sections
+        sections = []
+        for i, transcript in enumerate(transcripts, 1):
+            section = self._format_recording_section(
+                i, 
+                transcript['text'], 
+                transcript['metadata']
+            )
+            sections.append(section)
+        
+        body = "\n\n".join(sections)
+        
+        # Combine frontmatter and body
+        markdown = f"{frontmatter}\n\n{body}\n"
+        
+        logger.info(f"Combined markdown formatting completed ({len(transcripts)} recordings)")
+        return markdown
+    
     def _generate_frontmatter(self, metadata: Dict[str, Any]) -> str:
         """
         Generate YAML frontmatter from metadata.
@@ -93,6 +131,101 @@ class MarkdownFormatter:
         lines.append("---")
         
         return "\n".join(lines)
+    
+    def _generate_combined_frontmatter(self, metadata: Dict[str, Any]) -> str:
+        """
+        Generate YAML frontmatter for combined recordings.
+        
+        Args:
+            metadata: Combined metadata dictionary
+            
+        Returns:
+            Formatted frontmatter
+        """
+        lines = ["---"]
+        
+        # Add creation timestamp (from first recording)
+        if 'created' in metadata:
+            created = metadata['created']
+            if isinstance(created, datetime):
+                lines.append(f"created: {created.isoformat()}")
+            else:
+                lines.append(f"created: {created}")
+        
+        # Add list of source files
+        if 'sources' in metadata:
+            lines.append("sources:")
+            for source in metadata['sources']:
+                lines.append(f"  - {source}")
+        
+        # Add processing timestamp
+        processed = metadata.get('processed', datetime.now())
+        if isinstance(processed, datetime):
+            lines.append(f"processed: {processed.isoformat()}")
+        else:
+            lines.append(f"processed: {processed}")
+        
+        # Add total duration
+        if 'total_duration' in metadata:
+            lines.append(f"total_duration: {metadata['total_duration']}")
+        
+        # Add recording count
+        if 'recordings' in metadata:
+            lines.append(f"recordings: {metadata['recordings']}")
+        
+        # Add any custom metadata
+        for key, value in metadata.items():
+            if key not in ['created', 'sources', 'processed', 'total_duration', 'recordings']:
+                lines.append(f"{key}: {value}")
+        
+        lines.append("---")
+        
+        return "\n".join(lines)
+    
+    def _format_recording_section(
+        self, 
+        number: int, 
+        text: str, 
+        metadata: Dict[str, Any]
+    ) -> str:
+        """
+        Format a single recording as a section in combined output.
+        
+        Args:
+            number: Recording number (1, 2, 3, etc.)
+            text: Cleaned transcript text
+            metadata: Recording metadata
+            
+        Returns:
+            Formatted section
+        """
+        # Section header with recording number and filename
+        source = metadata.get('source', f'Recording {number}')
+        header = f"## Recording {number}: {source}"
+        
+        # Metadata line with timestamp and duration
+        meta_parts = []
+        
+        # Format timestamp
+        created = metadata.get('created')
+        if isinstance(created, datetime):
+            meta_parts.append(created.strftime('%m/%d/%Y %I:%M %p'))
+        
+        # Add duration
+        duration = metadata.get('duration')
+        if duration:
+            meta_parts.append(duration)
+        
+        meta_line = f"*{' • '.join(meta_parts)}*" if meta_parts else ""
+        
+        # Combine header, metadata, and content
+        section_parts = [header]
+        if meta_line:
+            section_parts.append(meta_line)
+        section_parts.append("")  # Blank line
+        section_parts.append(text.strip())
+        
+        return "\n".join(section_parts)
     
     def _format_body(self, text: str) -> str:
         """

@@ -27,7 +27,8 @@ def cli():
 @cli.command()
 @click.argument('files', nargs=-1, type=click.Path(exists=True), required=True)
 @click.option('--config', type=click.Path(), help='Path to custom config file')
-def process(files: tuple, config: str):
+@click.option('--combined', is_flag=True, help='Combine all recordings into a single note')
+def process(files: tuple, config: str, combined: bool):
     """Process audio file(s) into markdown notes."""
     
     try:
@@ -82,25 +83,42 @@ def process(files: tuple, config: str):
         _display_cost_estimate(costs)
         
         # Confirm processing
-        if not click.confirm("\nProceed with processing?", default=True):
+        mode_str = "combined mode" if combined else "separate files mode"
+        console.print(f"\n[bold]Mode:[/bold] {mode_str}")
+        
+        if not click.confirm("Proceed with processing?", default=True):
             console.print("[yellow]Processing cancelled.[/yellow]")
             sys.exit(0)
         
         # Process files
         console.print("\n[bold]Processing audio files...[/bold]\n")
-        results = _process_with_progress(pipeline, audio_files)
         
-        # Display results
-        console.print()
-        _display_results(results)
-        
-        # Display summary
-        summary = pipeline.get_summary(results)
-        _display_summary(summary)
-        
-        # Exit with appropriate code
-        if summary['failed'] > 0:
-            sys.exit(1)
+        if combined:
+            # Combined mode: process all files into one note
+            result = _process_combined_with_progress(pipeline, audio_files)
+            
+            # Display result
+            console.print()
+            _display_combined_result(result)
+            
+            # Exit with appropriate code
+            if not result.success:
+                sys.exit(1)
+        else:
+            # Separate mode: process each file individually
+            results = _process_with_progress(pipeline, audio_files)
+            
+            # Display results
+            console.print()
+            _display_results(results)
+            
+            # Display summary
+            summary = pipeline.get_summary(results)
+            _display_summary(summary)
+            
+            # Exit with appropriate code
+            if summary['failed'] > 0:
+                sys.exit(1)
         
     except Exception as e:
         console.print(f"[red]Error:[/red] {e}")
@@ -273,6 +291,46 @@ def _process_with_progress(pipeline: Pipeline, audio_files: List[AudioFile]) -> 
             progress.advance(task)
     
     return results
+
+
+def _process_combined_with_progress(pipeline: Pipeline, audio_files: List[AudioFile]) -> ProcessingResult:
+    """Process files in combined mode with progress indicator."""
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console
+    ) as progress:
+        task = progress.add_task(
+            f"Processing {len(audio_files)} file(s) in combined mode...",
+            total=None  # Indeterminate progress
+        )
+        
+        result = pipeline.process_files_combined(audio_files)
+        progress.update(task, completed=True)
+    
+    return result
+
+
+def _display_combined_result(result: ProcessingResult):
+    """Display result for combined processing."""
+    table = Table(title="Combined Processing Result")
+    table.add_column("Status", style="bold")
+    table.add_column("Output", style="green")
+    table.add_column("Characters", style="cyan")
+    table.add_column("Time", style="magenta")
+    
+    status = "[green]✓ Success[/green]" if result.success else "[red]✗ Failed[/red]"
+    output = result.output_path.name if result.output_path else (result.error or "N/A")
+    chars = f"{result.transcript_length:,}" if result.success else "N/A"
+    time_str = f"{result.processing_time:.1f}s"
+    
+    table.add_row(status, output, chars, time_str)
+    console.print(table)
+    
+    if result.success:
+        console.print(f"\n[green]✓ Successfully created combined note: {result.output_path}[/green]")
+    else:
+        console.print(f"\n[red]✗ Failed to create combined note: {result.error}[/red]")
 
 
 def _display_results(results: List[ProcessingResult]):

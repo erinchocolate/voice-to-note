@@ -142,48 +142,68 @@ A user who captures thoughts, ideas, and notes through voice recordings on their
 ### 5.2 Audio File Assumptions
 - **A-6**: Audio files are in .m4a format (AAC codec)
 - **A-7**: Audio quality is sufficient for transcription (minimal background noise)
-- **A-8**: Recordings are in a language supported by the chosen LLM
+- **A-8**: Recordings are in English, Chinese (Simplified), or a mix of both languages
 - **A-9**: Recordings are primarily a single speaker (the user)
 - **A-10**: Recording length is typically under 30 minutes per file
+- **A-11**: For mixed-language recordings, natural code-switching is expected and preserved
 
 ### 5.3 Workflow Assumptions
-- **A-11**: User manually initiates processing (not fully automated)
-- **A-12**: User reviews and may edit transcripts after processing
-- **A-13**: Processing doesn't need to be real-time (asynchronous is acceptable)
-- **A-14**: User is comfortable with basic configuration (file paths, API keys)
+- **A-12**: User manually initiates processing (not fully automated)
+- **A-13**: User reviews and may edit transcripts after processing
+- **A-14**: Processing doesn't need to be real-time (asynchronous is acceptable)
+- **A-15**: User is comfortable with basic configuration (file paths, API keys)
+- **A-16**: For bilingual users, mixed-language output is acceptable and preferred over translation
 
 ### 5.4 Content Assumptions
-- **A-15**: Recordings are general notes, thoughts, or ideas (not specialized medical/legal content)
-- **A-16**: Filler word removal won't significantly alter meaning
-- **A-17**: Basic markdown formatting is sufficient (no complex formatting needs)
-- **A-18**: Metadata in frontmatter is useful but not critical
+- **A-17**: Recordings are general notes, thoughts, or ideas (not specialized medical/legal content)
+- **A-18**: Filler word removal won't significantly alter meaning in either language
+- **A-19**: Basic markdown formatting is sufficient (no complex formatting needs)
+- **A-20**: Metadata in frontmatter is useful but not critical
+- **A-21**: Language-appropriate punctuation (e.g., 。for Chinese) is correctly rendered in Obsidian
 
 ### 5.5 Technical Assumptions
-- **A-19**: LLM APIs will remain stable and accessible
-- **A-20**: API costs are acceptable for the user's usage volume
-- **A-21**: Local storage space is sufficient for audio and markdown files
-- **A-22**: Obsidian vault structure won't conflict with generated files
+- **A-22**: LLM APIs will remain stable and accessible
+- **A-23**: API costs are acceptable for the user's usage volume
+- **A-24**: Local storage space is sufficient for audio and markdown files
+- **A-25**: Obsidian vault structure won't conflict with generated files
+- **A-26**: UTF-8 encoding is properly supported throughout the system (OS, terminal, Obsidian)
+- **A-27**: Chinese fonts are available for proper character display
 
 ### 5.6 Privacy and Security Assumptions
-- **A-23**: User consents to sending audio to third-party LLM services
-- **A-24**: User is aware that transcripts may be retained by LLM providers (per their policies)
-- **A-25**: No highly sensitive or confidential information in recordings
-- **A-26**: Local storage of API keys is acceptable if encrypted
+- **A-28**: User consents to sending audio to third-party LLM services
+- **A-29**: User is aware that transcripts may be retained by LLM providers (per their policies)
+- **A-30**: No highly sensitive or confidential information in recordings
+- **A-31**: Local storage of API keys is acceptable if encrypted
 
-## 6. Future Enhancements (Out of Scope for Initial Version)
+## 6. Current Language Support
 
-While not part of the initial requirements, the following enhancements could be considered for future iterations:
+### 6.1 Implemented Languages
+- **English**: Full support with comprehensive filler word detection
+- **Chinese (Simplified)**: Full support with Chinese-specific filler words (呃, 嗯, 那个, 就是, 然后, 这个, 其实, 对)
+- **Mixed English-Chinese**: Auto-detection and preservation of code-switching
 
+### 6.2 Language Processing Features
+- **Auto-detection**: Whisper API automatically detects language(s) in recording
+- **Bilingual Filler Word Removal**: Separate lists for English and Chinese filler words
+- **Language-Appropriate Punctuation**: Uses . , ! ? for English and 。，！？ for Chinese
+- **No Translation**: Preserves original language mix in mixed recordings
+- **UTF-8 Support**: Full Unicode support for Chinese characters
+
+## 7. Future Enhancements (Out of Scope for Current Version)
+
+While not part of the current implementation, the following enhancements could be considered for future iterations:
+
+- **Additional Languages**: Support for Traditional Chinese, Japanese, Korean, Spanish, etc.
 - **Speaker diarization**: Identify and label different speakers in multi-person recordings
 - **Automatic tagging**: LLM-generated tags based on content for Obsidian organization
 - **Summary generation**: Create TL;DR summaries for longer recordings
 - **Mobile app integration**: Direct upload from phone app to processing service
 - **Real-time processing**: Process recordings as they're being made
-- **Multi-language support**: Automatic language detection and transcription
 - **Custom vocabulary**: User-defined terms to improve transcription accuracy
 - **Voice commands**: Embed voice commands in recording to control formatting
 - **Integration with other note apps**: Support for Notion, Roam Research, etc.
 - **Collaborative features**: Share processed notes with others
+- **Language-specific formatting**: Custom formatting rules per language
 
 ---
 

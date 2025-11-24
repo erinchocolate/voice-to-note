@@ -235,6 +235,40 @@ class ConfigManager:
         output_folder = self.get("obsidian.output_folder", "Voice Notes")
         return vault_path / output_folder
     
+    def get_language(self) -> Optional[str]:
+        """
+        Get the language setting for transcription.
+        
+        Returns:
+            Language code (e.g., 'en', 'zh') or None for auto-detection
+        """
+        return self.get("llm.transcription.language")
+    
+    def get_filler_words(self) -> Dict[str, list]:
+        """
+        Get filler words for both English and Chinese.
+        
+        Returns:
+            Dictionary with 'english' and 'chinese' keys containing filler word lists
+        """
+        # Handle both old and new config formats
+        english_words = self.get("processing.filler_words_english")
+        chinese_words = self.get("processing.filler_words_chinese")
+        
+        # Fallback to old format if new format not found
+        if english_words is None:
+            english_words = self.get("processing.filler_words", [
+                "um", "uh", "like", "you know", "sort of", "kind of"
+            ])
+        
+        if chinese_words is None:
+            chinese_words = []
+        
+        return {
+            "english": english_words,
+            "chinese": chinese_words
+        }
+    
     def setup_logging(self) -> None:
         """Configure logging based on config settings."""
         log_level = self.get("logging.level", "INFO")

@@ -10,6 +10,9 @@ obsidian:
   
   # Filename pattern: {date}, {time}, {original_name} available
   filename_pattern: "{date}-{time}-voice-note"
+  
+  # Filename pattern for combined batch processing
+  combined_filename_pattern: "{date}-combined-notes"
 
 llm:
   transcription:
@@ -22,7 +25,8 @@ llm:
     # Whisper model to use
     model: "whisper-1"
     
-    # Language (optional, auto-detect if not set)
+    # Language: 'en' for English, 'zh' for Chinese, or null for auto-detection
+    # Auto-detection is recommended for mixed English/Chinese recordings
     language: null
   
   text_processing:
@@ -36,14 +40,25 @@ llm:
     model: "gpt-4-turbo-preview"
 
 processing:
-  # Common filler words to remove
-  filler_words:
+  # English filler words to remove
+  filler_words_english:
     - "um"
     - "uh"
     - "like"
     - "you know"
     - "sort of"
     - "kind of"
+  
+  # Chinese filler words to remove (Simplified Chinese)
+  filler_words_chinese:
+    - "呃"      # uh
+    - "嗯"      # um/hmm
+    - "那个"    # that/um (very common filler)
+    - "就是"    # literally "is", used as filler
+    - "然后"    # then (overused as filler)
+    - "这个"    # this (used as filler)
+    - "其实"    # actually (often overused)
+    - "对"      # yeah/right (agreement filler)
   
   # How aggressive to be with filler word removal: low, moderate, high
   remove_aggressiveness: "moderate"

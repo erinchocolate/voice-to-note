@@ -23,17 +23,34 @@ This document contains the technical architecture, components, data flow, and in
 - Use GPT-4 or Claude for text cleanup and formatting
 - Provide configuration options to switch providers
 
-### 1.2 Audio Format Handling
+### 1.2 Multi-Language Support
+**Supported Languages:**
+- **English**: Full support with native filler word detection
+- **Chinese (Simplified)**: Full support with Chinese-specific filler word detection
+- **Mixed Language**: Auto-detection handles code-switching between English and Chinese
+
+**Language Detection:**
+- Whisper API provides auto-detection when `language=null`
+- Recommended approach for mixed-language recordings
+- Can be manually overridden in config (`language: 'en'` or `language: 'zh'`)
+
+**Text Processing Challenges:**
+- Filler words differ significantly between languages
+- Punctuation marks differ (English: . , ! ? vs Chinese: 。，！？)
+- GPT must preserve original language(s) without translation
+- Mixed-language text requires careful handling to maintain natural flow
+
+### 1.3 Audio Format Handling
 - **Library Recommendation**: Use `pydub` (Python) or `ffmpeg` bindings for audio processing
 - **Format Support**: Primary support for .m4a, with potential extension to MP3, WAV, FLAC
 - **Pre-processing**: May need to convert or normalize audio for optimal transcription
 
-### 1.3 File System Operations
+### 1.4 File System Operations
 - **Path Management**: Use `pathlib` for cross-platform path handling
 - **File Watching**: Optional feature to monitor a folder for new recordings
 - **Vault Discovery**: Support manual configuration or auto-detection of Obsidian vaults
 
-### 1.4 Configuration Management
+### 1.5 Configuration Management
 **Configuration File Format**: JSON or YAML
 **Required Settings:**
 - LLM API keys and endpoints
@@ -45,13 +62,13 @@ This document contains the technical architecture, components, data flow, and in
 - User config directory (`~/.config/voice-to-note/` on Linux/Mac, `AppData` on Windows)
 - Support for environment variables for API keys
 
-### 1.5 Error Handling Strategy
+### 1.6 Error Handling Strategy
 - Validate inputs before processing
 - Implement retry logic for API calls (with exponential backoff)
 - Graceful degradation if certain features fail
 - Comprehensive error logging with context
 
-### 1.6 Development Stack Recommendations
+### 1.7 Development Stack Recommendations
 **Primary Option - Python:**
 - **Pros**: Excellent LLM library support, rich ecosystem for audio processing
 - **Libraries**: `openai`, `anthropic`, `pydub`, `pathlib`, `pyyaml`
@@ -90,19 +107,26 @@ This document contains the technical architecture, components, data flow, and in
 
 ### 2.3 Text Processor
 **Responsibilities:**
-- Remove filler words using pattern matching and LLM context
-- Add punctuation using LLM
+- Remove filler words using pattern matching and LLM context (multi-language)
+- Add language-appropriate punctuation using LLM
 - Format into paragraphs
-- Improve readability while preserving meaning
+- Improve readability while preserving meaning and original language(s)
+- Handle mixed-language text without translation
 
 **Interfaces:**
-- Input: Raw transcript text
-- Output: Cleaned and formatted text
+- Input: Raw transcript text (may be English, Chinese, or mixed)
+- Output: Cleaned and formatted text (preserving original languages)
 
 **Sub-components:**
-- Filler Word Remover
-- Punctuation Engine
+- Filler Word Remover (English + Chinese patterns)
+- Punctuation Engine (language-aware)
 - Paragraph Formatter
+
+**Language Handling:**
+- Maintains separate filler word lists for English and Chinese
+- Applies both pattern-matching and LLM-based removal
+- GPT system prompt explicitly instructs to preserve original languages
+- Handles code-switching gracefully
 
 ### 2.4 Markdown Formatter
 **Responsibilities:**
@@ -239,16 +263,27 @@ This document contains the technical architecture, components, data flow, and in
 - **Output Format**: JSON with cleaned text
 - **Prompt Engineering**: Critical for quality - include clear instructions
 
-**Example Prompt for Text Cleaning:**
+**Example Prompt for Text Cleaning (Bilingual):**
 ```
-You are a text editor. Clean the following transcript by:
-1. Removing filler words (um, uh, like, you know, etc.)
-2. Adding appropriate punctuation
-3. Organizing into paragraphs
-4. Maintaining the original meaning and tone
-5. Making it readable while preserving natural voice
+You are a professional text editor specializing in cleaning voice transcripts 
+in both English and Chinese (Simplified).
 
-Return only the cleaned text, no additional commentary.
+CRITICAL LANGUAGE RULES:
+- The text may be in English, Chinese, or mixed (code-switching between both)
+- PRESERVE the original language(s) - DO NOT translate
+- Apply language-appropriate punctuation:
+  * English: . , ! ? ; :
+  * Chinese: 。，！？；：
+
+GENERAL INSTRUCTIONS:
+1. Add appropriate punctuation based on the language being used
+2. Organize the text into logical paragraphs
+3. Remove filler words while preserving natural speech patterns
+4. Maintain the speaker's original meaning and tone
+5. Return ONLY the cleaned text, nothing else
+
+English filler words: um, uh, like, you know, sort of, kind of
+Chinese filler words: 呃, 嗯, 那个, 就是, 然后, 这个, 其实, 对
 
 Transcript:
 {raw_transcript}
@@ -280,7 +315,7 @@ Transcript:
 - Location: `~/.config/voice-to-note/config.yaml`
 - Format: YAML for human readability
 
-**Example Configuration:**
+**Example Configuration (with Multi-Language Support):**
 ```yaml
 obsidian:
   vault_path: "/home/user/Documents/MyVault"
@@ -292,6 +327,7 @@ llm:
     provider: "openai_whisper"
     api_key_env: "OPENAI_API_KEY"
     model: "whisper-1"
+    language: null  # Auto-detect (recommended for mixed EN/CN)
   
   text_processing:
     provider: "openai_gpt"
@@ -299,11 +335,20 @@ llm:
     model: "gpt-4-turbo-preview"
 
 processing:
-  filler_words:
+  # Separate filler word lists for each language
+  filler_words_english:
     - "um"
     - "uh"
     - "like"
     - "you know"
+  
+  filler_words_chinese:
+    - "呃"      # uh
+    - "嗯"      # um/hmm
+    - "那个"    # that/um
+    - "就是"    # is (as filler)
+    - "然后"    # then (overused)
+    - "这个"    # this (as filler)
   
   remove_aggressiveness: "moderate"  # low, moderate, high
   add_headings: false
